@@ -1,6 +1,5 @@
-# 실습
-# 남자여자구별  
-# ImageDataGenerator / fit 사용해서 완성 
+# 나를 찍어서 내가 남자인지 여자인지에 대해 
+
 import numpy as np
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from tensorflow.keras.models import Sequential
@@ -35,11 +34,25 @@ xy_train = train_datagen.flow_from_directory(
 xy_val = train_datagen.flow_from_directory( 
     './image/human',
     target_size=(150,150),
-    batch_size=1, 
+    batch_size=10, 
     class_mode='binary', # 앞에있는놈이 0 뒤에는 1 
     subset='validation'
 )
 
+x_pred = train_datagen.flow_from_directory(
+    './image/human/taeuk1/',
+    target_size = (150,150),
+    batch_size= 14,
+    class_mode='binary', 
+)
+# predict_generater
+# xy_real = train_datagen.flow_from_directory( 
+#     './image/human/taeuk',
+#     target_size=(150,150),
+#     batch_size=1, 
+#     class_mode='binary', # 앞에있는놈이 0 뒤에는 1 
+#     subset='validation'
+# )
 
 print(xy_train[0][0].shape)
 print(xy_train[0][1].shape)
@@ -87,33 +100,67 @@ reduce_lr = ReduceLROnPlateau(monitor = 'val_loss', patience = 15, factor = 0.5,
 
 model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['acc'])
 history = model.fit_generator(
-    xy_train,  epochs=5, 
+    xy_train,  epochs=100, 
     validation_data=xy_val, callbacks=[early_stopping, reduce_lr]
 )
 
 loss = model.evaluate(xy_train)
 print('loss, acc : ', loss)
-
-
-# loss, acc :  [0.6319777369499207, 0.6348684430122375]
-
-print("-- Predict --")
-output = model.predict_generator(xy_val, steps=5)
-np.set_printoptions(formatter={'float': lambda x: "{0:0.3f}".format(x)})
-print(xy_val.class_indices)
-print(output)
+# loss, acc :  loss, acc :  [4.355147361755371, 0.4755513072013855]
+result = model.predict_generator(x_pred,verbose=True)
+np.where(result < 0.5, '남자', '여자')
+print(result)
+print("남자일 확률은",result*100,"%입니다.")
 
 
 '''
-import matplotlib.pyplot as plt
-plt.plot(history.history['loss'])
-plt.plot(history.history['val_loss'])
-plt.plot(history.history['acc'])
-plt.plot(history.history['val_acc'])
+class_names = ['female','male']
 
-plt.title('loss & acc')
-plt.ylabel('loss, acc')
-plt.xlabel('epoch')
-plt.legend(['train loss', 'val loss', 'train acc', 'val acc']) # 빈자리에 설명(범주?)
+import matplotlib.pyplot as plt
+from PIL import Image
+
+def plot_image(i, predictions_array, true_label, img):
+    predictions_array, true_label, img = predictions_array[i], true_label[i], img[i]
+    plt.grid(False)
+    plt.xticks([])
+    plt.yticks([])
+    img = Image.open(img).convert('RGB')
+    img.save(img)
+
+    plt.imshow(img, cmap = 'gray')
+
+    predicted_label = np.argmax(predictions_array)
+    if predicted_label == true_label:
+        color = 'blue'
+    else:
+        color = 'red'
+
+    plt.xlabel(
+        '{} {:2.0f}% ({})'.format(class_names[predicted_label],
+         100*np.max(predictions_array),
+         class_names[true_label]),
+         color=color)
+
+def plot_value_array(i, predictions_array,true_label):
+    predictions_array, true_label = predictions_array[i], true_label[i]
+    plt.gird(False)
+    plt.xticks([])
+    plt.yticks([])
+    thisplot = plt.bar(range(10), predictions_array, color="#777777")
+    plt.ylim([0,1])
+    predicted_label = np. argmax(predictions_array)
+
+    thisplot[predicted_label].set_color('red')
+    thisplot[true_label].set_color('blue')
+
+num_rows = 5
+num_cols = 3
+num_images = num_rows*num_cols
+plt.figure(figsize=(2*2*num_cols, 2*num_rows))
+for i in range(num_images):
+    plt.subplot(num_rows, 2*num_cols, 2*i+1)
+    plot_image(i,result, xy_train, xy_val)
+    plt.subplot(num_rows, 2*num_cols, 2*i+2)
+    plot_value_array(i, result, xy_val)
 plt.show()
 '''
